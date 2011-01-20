@@ -45,6 +45,7 @@
 #include "FileSystem/MultiPathDirectory.h"
 #include "FileSystem/DirectoryCache.h"
 #include "FileSystem/SpecialProtocol.h"
+#include "FileSystem/PVRDirectory.h"
 #include "FileSystem/RSSDirectory.h"
 #include "ThumbnailCache.h"
 #ifdef HAS_FILESYSTEM_RAR
@@ -1154,6 +1155,11 @@ bool CUtil::IsVTP(const CStdString& strFile)
   return strFile.Left(4).Equals("vtp:");
 }
 
+bool CUtil::IsPVR(const CStdString& strFile)
+{
+  return strFile.Left(4).Equals("pvr:");
+}
+
 bool CUtil::IsHTSP(const CStdString& strFile)
 {
   return strFile.Left(5).Equals("htsp:");
@@ -1161,6 +1167,9 @@ bool CUtil::IsHTSP(const CStdString& strFile)
 
 bool CUtil::IsLiveTV(const CStdString& strFile)
 {
+  if (strFile.Left(14).Equals("pvr://channels"))
+    return true;
+
   if(IsTuxBox(strFile)
   || IsVTP(strFile)
   || IsHDHomeRun(strFile)
@@ -1172,6 +1181,11 @@ bool CUtil::IsLiveTV(const CStdString& strFile)
     return true;
 
   return false;
+}
+
+bool CUtil::IsTVRecording(const CStdString& strFile)
+{
+  return strFile.Left(15).Equals("pvr://recording");
 }
 
 bool CUtil::IsMusicDb(const CStdString& strFile)
@@ -3068,6 +3082,10 @@ bool CUtil::SupportsFileOperations(const CStdString& strPath)
     return true;
   if (IsSmb(strPath))
     return true;
+  if (IsTVRecording(strPath))
+  {
+    return CPVRDirectory::SupportsFileOperations(strPath);
+  }
   if (IsMythTV(strPath))
   {
     /*

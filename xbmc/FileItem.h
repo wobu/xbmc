@@ -41,6 +41,10 @@ namespace MUSIC_INFO
   class CMusicInfoTag;
 }
 class CVideoInfoTag;
+class cPVREPGInfoTag;
+class cPVRChannelInfoTag;
+class cPVRRecordingInfoTag;
+class cPVRTimerInfoTag;
 class CPictureInfoTag;
 
 class CAlbum;
@@ -73,6 +77,10 @@ public:
   CFileItem(const CArtist& artist);
   CFileItem(const CGenre& genre);
   CFileItem(const CVideoInfoTag& movie);
+  CFileItem(const cPVREPGInfoTag& programme);
+  CFileItem(const cPVRChannelInfoTag& channel);
+  CFileItem(const cPVRRecordingInfoTag& record);
+  CFileItem(const cPVRTimerInfoTag& timer);
   CFileItem(const CMediaSource& share);
   virtual ~CFileItem(void);
   virtual CGUIListItem *Clone() const { return new CFileItem(*this); };
@@ -120,6 +128,10 @@ public:
   bool IsMultiPath() const;
   bool IsMusicDb() const;
   bool IsVideoDb() const;
+  bool IsEPG() const;
+  bool IsPVRChannel() const;
+  bool IsPVRRecording() const;
+  bool IsPVRTimer() const;
   bool IsType(const char *ext) const;
   bool IsVirtualDirectoryRoot() const;
   bool IsReadOnly() const;
@@ -132,6 +144,7 @@ public:
   bool IsMythTV() const;
   bool IsHDHomeRun() const;
   bool IsVTP() const;
+  bool IsPVR() const;
   bool IsLiveTV() const;
   bool IsRSS() const;
 
@@ -141,6 +154,7 @@ public:
   void SetMusicThumb(bool alwaysCheckRemote = false);
   void SetFileSizeLabel();
   virtual void SetLabel(const CStdString &strLabel);
+  virtual void SetLabel2(const CStdString &strLabel);
   CURL GetAsUrl() const;
   bool IsLabelPreformated() const { return m_bLabelPreformated; }
   void SetLabelPreformated(bool bYesNo) { m_bLabelPreformated=bYesNo; }
@@ -170,6 +184,54 @@ public:
   inline const CVideoInfoTag* GetVideoInfoTag() const
   {
     return m_videoInfoTag;
+  }
+
+  inline bool HasEPGInfoTag() const
+  {
+    return m_epgInfoTag != NULL;
+  }
+
+  cPVREPGInfoTag* GetEPGInfoTag();
+
+  inline const cPVREPGInfoTag* GetEPGInfoTag() const
+  {
+    return m_epgInfoTag;
+  }
+
+  inline bool HasPVRChannelInfoTag() const
+  {
+    return m_pvrChannelInfoTag != NULL;
+  }
+
+  cPVRChannelInfoTag* GetPVRChannelInfoTag();
+
+  inline const cPVRChannelInfoTag* GetPVRChannelInfoTag() const
+  {
+    return m_pvrChannelInfoTag;
+  }
+
+  inline bool HasPVRRecordingInfoTag() const
+  {
+    return m_pvrRecordingInfoTag != NULL;
+  }
+
+  cPVRRecordingInfoTag* GetPVRRecordingInfoTag();
+
+  inline const cPVRRecordingInfoTag* GetPVRRecordingInfoTag() const
+  {
+    return m_pvrRecordingInfoTag;
+  }
+
+  inline bool HasPVRTimerInfoTag() const
+  {
+    return m_pvrTimerInfoTag != NULL;
+  }
+
+  cPVRTimerInfoTag* GetPVRTimerInfoTag();
+
+  inline const cPVRTimerInfoTag* GetPVRTimerInfoTag() const
+  {
+    return m_pvrTimerInfoTag;
   }
 
   inline bool HasPictureInfoTag() const
@@ -282,6 +344,10 @@ private:
   CStdString m_extrainfo;
   MUSIC_INFO::CMusicInfoTag* m_musicInfoTag;
   CVideoInfoTag* m_videoInfoTag;
+  cPVREPGInfoTag* m_epgInfoTag;
+  cPVRChannelInfoTag* m_pvrChannelInfoTag;
+  cPVRRecordingInfoTag* m_pvrRecordingInfoTag;
+  cPVRTimerInfoTag * m_pvrTimerInfoTag;
   CPictureInfoTag* m_pictureInfoTag;
   bool m_bIsAlbum;
 };
