@@ -1395,9 +1395,10 @@ void CPVRManager::ResetQualityData()
 
 const CPVRChannelGroup *CPVRManager::GetPlayingGroup(void)
 {
-  return m_currentGroup ?
-      m_currentGroup :
-      GetChannelGroups()->GetGroupAllTV();
+  if (!m_currentGroup)
+    m_currentGroup = (CPVRChannelGroup *) GetChannelGroups()->GetGroupAllTV();
+
+  return m_currentGroup;
 }
 
 void CPVRManager::TriggerRecordingsUpdate()
@@ -1574,21 +1575,21 @@ int CPVRManager::ReadStream(void* lpBuf, int64_t uiBufSize)
 void CPVRManager::DemuxReset()
 {
   CSingleLock lock(m_critSection);
-  if (m_currentPlayingChannel)
+  if (m_currentPlayingChannel && m_currentPlayingChannel->GetPVRChannelInfoTag() && m_currentPlayingChannel->GetPVRChannelInfoTag()->ClientID() >= 0)
     m_clients[m_currentPlayingChannel->GetPVRChannelInfoTag()->ClientID()]->DemuxReset();
 }
 
 void CPVRManager::DemuxAbort()
 {
   CSingleLock lock(m_critSection);
-  if (m_currentPlayingChannel)
+  if (m_currentPlayingChannel && m_currentPlayingChannel->GetPVRChannelInfoTag() && m_currentPlayingChannel->GetPVRChannelInfoTag()->ClientID() >= 0)
     m_clients[m_currentPlayingChannel->GetPVRChannelInfoTag()->ClientID()]->DemuxAbort();
 }
 
 void CPVRManager::DemuxFlush()
 {
   CSingleLock lock(m_critSection);
-  if (m_currentPlayingChannel)
+  if (m_currentPlayingChannel && m_currentPlayingChannel->GetPVRChannelInfoTag() && m_currentPlayingChannel->GetPVRChannelInfoTag()->ClientID() >= 0)
     m_clients[m_currentPlayingChannel->GetPVRChannelInfoTag()->ClientID()]->DemuxFlush();
 }
 
@@ -1597,7 +1598,7 @@ DemuxPacket* CPVRManager::ReadDemuxStream()
   DemuxPacket* packet = NULL;
 
   CSingleLock lock(m_critSection);
-  if (m_currentPlayingChannel)
+  if (m_currentPlayingChannel && m_currentPlayingChannel->GetPVRChannelInfoTag() && m_currentPlayingChannel->GetPVRChannelInfoTag()->ClientID() >= 0)
     packet = m_clients[m_currentPlayingChannel->GetPVRChannelInfoTag()->ClientID()]->DemuxRead();
 
   return packet;
@@ -1700,7 +1701,13 @@ bool CPVRManager::UpdateItem(CFileItem& item)
 
 bool CPVRManager::ChannelSwitch(unsigned int iChannel)
 {
-  return PerformChannelSwitch(m_currentPlayingChannel->GetPVRChannelInfoTag(), false);
+  const CPVRChannel *channel = NULL;
+  if (m_currentGroup)
+    channel = m_currentGroup->GetByChannelNumber(iChannel);
+  else if (m_currentPlayingChannel)
+    channel = m_channelGroups->Get(m_currentPlayingChannel->GetPVRChannelInfoTag()->IsRadio())->GetGroupAll()->GetByChannelNumber(iChannel);
+
+  return PerformChannelSwitch(channel, false);
 }
 
 bool CPVRManager::ChannelUp(unsigned int *iNewChannelNumber, bool bPreview /* = false*/)
@@ -1720,9 +1727,10 @@ bool CPVRManager::ChannelUpDown(unsigned int *iNewChannelNumber, bool bPreview, 
   if (m_currentPlayingChannel)
   {
     const CPVRChannel *currentChannel = m_currentPlayingChannel->GetPVRChannelInfoTag();
-    if (m_currentGroup)
+    const CPVRChannelGroup *group = GetPlayingGroup();
+    if (group)
     {
-      const CPVRChannel *newChannel = bUp ? m_currentGroup->GetByChannelUp(currentChannel) : m_currentGroup->GetByChannelDown(currentChannel);
+      const CPVRChannel *newChannel = bUp ? group->GetByChannelUp(currentChannel) : group->GetByChannelDown(currentChannel);
       if (PerformChannelSwitch(newChannel, bPreview))
       {
         *iNewChannelNumber = newChannel->ChannelNumber();
@@ -1758,7 +1766,13 @@ bool CPVRManager::PerformChannelSwitch(const CPVRChannel *channel, bool bPreview
 {
   CSingleLock lock(m_critSection);
 
-  if (!channel || !m_clients[channel->ClientID()]->SwitchChannel(*channel))
+  if (!channel)
+    return false;
+
+  CLog::Log(LOGDEBUG, "PVRManager - %s - switching to channel '%s'",
+      __FUNCTION__, channel->ChannelName().c_str());
+
+  if (channel->ClientID() < 0 || !m_clients[channel->ClientID()]->SwitchChannel(*channel))
   {
     CLog::Log(LOGERROR, "PVRManager - %s - failed to switch to channel '%s'",
         __FUNCTION__, channel ? channel->ChannelName().c_str() : "NULL");
