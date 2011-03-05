@@ -134,7 +134,7 @@ void CPVRManager::Start()
   /* create the supervisor thread to do all background activities */
   Create();
   SetName("XBMC PVRManager");
-  SetPriority(5);
+  SetPriority(-1);
   CLog::Log(LOGNOTICE, "PVRManager - started with %u active clients", m_clients.size());
 }
 
@@ -177,7 +177,7 @@ bool CPVRManager::TryLoadClients(int iMaxTime /* = 0 */)
         break;
     }
 
-    Sleep(0);
+    Sleep(10);
   }
 
   CLog::Log(LOG_DEBUG, "PVRManager - %s - %s",
@@ -1313,62 +1313,62 @@ void CPVRManager::LoadCurrentChannelSettings()
 {
   if (m_currentPlayingChannel && g_application.m_pPlayer)
   {
-    CVideoSettings loadedChannelSettings;
-
     /* set the default settings first */
-    g_settings.m_currentVideoSettings = g_settings.m_defaultVideoSettings;
+    CVideoSettings loadedChannelSettings = g_settings.m_defaultVideoSettings;
 
-    if (m_database.Open() &&
-        m_database.GetChannelSettings(*m_currentPlayingChannel->GetPVRChannelInfoTag(), loadedChannelSettings))
+    /* try to load the settings from the database */
+    if (m_database.Open())
     {
-      g_settings.m_currentVideoSettings.m_Brightness          = loadedChannelSettings.m_Brightness;
-      g_settings.m_currentVideoSettings.m_Contrast            = loadedChannelSettings.m_Contrast;
-      g_settings.m_currentVideoSettings.m_Gamma               = loadedChannelSettings.m_Gamma;
-      g_settings.m_currentVideoSettings.m_Crop                = loadedChannelSettings.m_Crop;
-      g_settings.m_currentVideoSettings.m_CropLeft            = loadedChannelSettings.m_CropLeft;
-      g_settings.m_currentVideoSettings.m_CropRight           = loadedChannelSettings.m_CropRight;
-      g_settings.m_currentVideoSettings.m_CropTop             = loadedChannelSettings.m_CropTop;
-      g_settings.m_currentVideoSettings.m_CropBottom          = loadedChannelSettings.m_CropBottom;
-      g_settings.m_currentVideoSettings.m_CustomPixelRatio    = loadedChannelSettings.m_CustomPixelRatio;
-      g_settings.m_currentVideoSettings.m_CustomZoomAmount    = loadedChannelSettings.m_CustomZoomAmount;
-      g_settings.m_currentVideoSettings.m_NoiseReduction      = loadedChannelSettings.m_NoiseReduction;
-      g_settings.m_currentVideoSettings.m_Sharpness           = loadedChannelSettings.m_Sharpness;
-      g_settings.m_currentVideoSettings.m_InterlaceMethod     = loadedChannelSettings.m_InterlaceMethod;
-      g_settings.m_currentVideoSettings.m_OutputToAllSpeakers = loadedChannelSettings.m_OutputToAllSpeakers;
-      g_settings.m_currentVideoSettings.m_AudioDelay          = loadedChannelSettings.m_AudioDelay;
-      g_settings.m_currentVideoSettings.m_AudioStream         = loadedChannelSettings.m_AudioStream;
-      g_settings.m_currentVideoSettings.m_SubtitleOn          = loadedChannelSettings.m_SubtitleOn;
-      g_settings.m_currentVideoSettings.m_SubtitleDelay       = loadedChannelSettings.m_SubtitleDelay;
-
-      /* only change the view mode if it's different */
-      if (g_settings.m_currentVideoSettings.m_ViewMode != loadedChannelSettings.m_ViewMode)
-      {
-        g_settings.m_currentVideoSettings.m_ViewMode = loadedChannelSettings.m_ViewMode;
-
-        g_renderManager.SetViewMode(g_settings.m_currentVideoSettings.m_ViewMode);
-        g_settings.m_currentVideoSettings.m_CustomZoomAmount = g_settings.m_fZoomAmount;
-        g_settings.m_currentVideoSettings.m_CustomPixelRatio = g_settings.m_fPixelRatio;
-      }
-
-      /* only change the subtitle strea, if it's different */
-      if (g_settings.m_currentVideoSettings.m_SubtitleStream != loadedChannelSettings.m_SubtitleStream)
-      {
-        g_settings.m_currentVideoSettings.m_SubtitleStream = loadedChannelSettings.m_SubtitleStream;
-
-        g_application.m_pPlayer->SetSubtitle(g_settings.m_currentVideoSettings.m_SubtitleStream);
-      }
-
-      /* only change the audio stream if it's different */
-      if (g_application.m_pPlayer->GetAudioStream() != g_settings.m_currentVideoSettings.m_AudioStream)
-        g_application.m_pPlayer->SetAudioStream(g_settings.m_currentVideoSettings.m_AudioStream);
-
-      g_application.m_pPlayer->SetAVDelay(g_settings.m_currentVideoSettings.m_AudioDelay);
-      g_application.m_pPlayer->SetDynamicRangeCompression((long)(g_settings.m_currentVideoSettings.m_VolumeAmplification * 100));
-      g_application.m_pPlayer->SetSubtitleVisible(g_settings.m_currentVideoSettings.m_SubtitleOn);
-      g_application.m_pPlayer->SetSubTitleDelay(g_settings.m_currentVideoSettings.m_SubtitleDelay);
-
+      m_database.GetChannelSettings(*m_currentPlayingChannel->GetPVRChannelInfoTag(), loadedChannelSettings);
       m_database.Close();
     }
+
+    g_settings.m_currentVideoSettings = g_settings.m_defaultVideoSettings;
+    g_settings.m_currentVideoSettings.m_Brightness          = loadedChannelSettings.m_Brightness;
+    g_settings.m_currentVideoSettings.m_Contrast            = loadedChannelSettings.m_Contrast;
+    g_settings.m_currentVideoSettings.m_Gamma               = loadedChannelSettings.m_Gamma;
+    g_settings.m_currentVideoSettings.m_Crop                = loadedChannelSettings.m_Crop;
+    g_settings.m_currentVideoSettings.m_CropLeft            = loadedChannelSettings.m_CropLeft;
+    g_settings.m_currentVideoSettings.m_CropRight           = loadedChannelSettings.m_CropRight;
+    g_settings.m_currentVideoSettings.m_CropTop             = loadedChannelSettings.m_CropTop;
+    g_settings.m_currentVideoSettings.m_CropBottom          = loadedChannelSettings.m_CropBottom;
+    g_settings.m_currentVideoSettings.m_CustomPixelRatio    = loadedChannelSettings.m_CustomPixelRatio;
+    g_settings.m_currentVideoSettings.m_CustomZoomAmount    = loadedChannelSettings.m_CustomZoomAmount;
+    g_settings.m_currentVideoSettings.m_NoiseReduction      = loadedChannelSettings.m_NoiseReduction;
+    g_settings.m_currentVideoSettings.m_Sharpness           = loadedChannelSettings.m_Sharpness;
+    g_settings.m_currentVideoSettings.m_InterlaceMethod     = loadedChannelSettings.m_InterlaceMethod;
+    g_settings.m_currentVideoSettings.m_OutputToAllSpeakers = loadedChannelSettings.m_OutputToAllSpeakers;
+    g_settings.m_currentVideoSettings.m_AudioDelay          = loadedChannelSettings.m_AudioDelay;
+    g_settings.m_currentVideoSettings.m_AudioStream         = loadedChannelSettings.m_AudioStream;
+    g_settings.m_currentVideoSettings.m_SubtitleOn          = loadedChannelSettings.m_SubtitleOn;
+    g_settings.m_currentVideoSettings.m_SubtitleDelay       = loadedChannelSettings.m_SubtitleDelay;
+
+    /* only change the view mode if it's different */
+    if (g_settings.m_currentVideoSettings.m_ViewMode != loadedChannelSettings.m_ViewMode)
+    {
+      g_settings.m_currentVideoSettings.m_ViewMode = loadedChannelSettings.m_ViewMode;
+
+      g_renderManager.SetViewMode(g_settings.m_currentVideoSettings.m_ViewMode);
+      g_settings.m_currentVideoSettings.m_CustomZoomAmount = g_settings.m_fZoomAmount;
+      g_settings.m_currentVideoSettings.m_CustomPixelRatio = g_settings.m_fPixelRatio;
+    }
+
+    /* only change the subtitle strea, if it's different */
+    if (g_settings.m_currentVideoSettings.m_SubtitleStream != loadedChannelSettings.m_SubtitleStream)
+    {
+      g_settings.m_currentVideoSettings.m_SubtitleStream = loadedChannelSettings.m_SubtitleStream;
+
+      g_application.m_pPlayer->SetSubtitle(g_settings.m_currentVideoSettings.m_SubtitleStream);
+    }
+
+    /* only change the audio stream if it's different */
+    if (g_application.m_pPlayer->GetAudioStream() != g_settings.m_currentVideoSettings.m_AudioStream)
+      g_application.m_pPlayer->SetAudioStream(g_settings.m_currentVideoSettings.m_AudioStream);
+
+    g_application.m_pPlayer->SetAVDelay(g_settings.m_currentVideoSettings.m_AudioDelay);
+    g_application.m_pPlayer->SetDynamicRangeCompression((long)(g_settings.m_currentVideoSettings.m_VolumeAmplification * 100));
+    g_application.m_pPlayer->SetSubtitleVisible(g_settings.m_currentVideoSettings.m_SubtitleOn);
+    g_application.m_pPlayer->SetSubTitleDelay(g_settings.m_currentVideoSettings.m_SubtitleDelay);
   }
 }
 
