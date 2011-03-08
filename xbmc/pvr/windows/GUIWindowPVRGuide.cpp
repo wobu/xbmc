@@ -28,11 +28,12 @@
 #include "pvr/channels/PVRChannelGroupsContainer.h"
 #include "pvr/epg/PVREpgInfoTag.h"
 #include "pvr/windows/GUIWindowPVR.h"
+#include "settings/AdvancedSettings.h"
 #include "settings/GUISettings.h"
 #include "settings/Settings.h"
 
 CGUIWindowPVRGuide::CGUIWindowPVRGuide(CGUIWindowPVR *parent) :
-  CGUIWindowPVRCommon(parent, PVR_WINDOW_EPG, CONTROL_BTNGUIDE, CONTROL_LIST_TIMELINE)
+  CGUIWindowPVRCommon(parent, PVR_WINDOW_EPG, CONTROL_BTNGUIDE, CONTROL_LIST_GUIDE_NOW_NEXT)
 {
   m_iGuideView = g_guiSettings.GetInt("pvrmenu.defaultguideview");
 }
@@ -90,25 +91,6 @@ bool CGUIWindowPVRGuide::OnContextButton(int itemNumber, CONTEXT_BUTTON button)
       CGUIWindowPVRCommon::OnContextButton(itemNumber, button);
 }
 
-void CGUIWindowPVRGuide::OnInitWindow(void)
-{
-  switch (m_iGuideView)
-  {
-  case GUIDE_VIEW_CHANNEL:
-    m_parent->m_viewControl.SetCurrentView(CONTROL_LIST_GUIDE_CHANNEL);
-    break;
-  case GUIDE_VIEW_NOW:
-  case GUIDE_VIEW_NEXT:
-    m_parent->m_viewControl.SetCurrentView(CONTROL_LIST_GUIDE_NOW_NEXT);
-    break;
-  case GUIDE_VIEW_TIMELINE:
-    m_parent->m_viewControl.SetCurrentView(CONTROL_LIST_TIMELINE);
-    break;
-  default:
-    break;
-  }
-}
-
 void CGUIWindowPVRGuide::UpdateData(void)
 {
   if (m_bIsFocusing)
@@ -129,7 +111,7 @@ void CGUIWindowPVRGuide::UpdateData(void)
     if (bGotCurrentChannel)
       m_parent->SetLabel(CONTROL_LABELGROUP, CurrentChannel.ChannelName().c_str());
 
-    if (!bGotCurrentChannel || CurrentChannel.GetEPG(m_parent->m_vecItems) == 0)
+    if (!bGotCurrentChannel || CPVRManager::Get()->GetCurrentEpg(m_parent->m_vecItems) == 0)
     {
       CFileItemPtr item;
       item.reset(new CFileItem("pvr://guide/" + CurrentChannel.ChannelName() + "/empty.epg", false));
@@ -185,13 +167,14 @@ void CGUIWindowPVRGuide::UpdateData(void)
 
     if (CPVRManager::GetEpg()->GetEPGAll(m_parent->m_vecItems, bRadio) > 0)
     {
-      CDateTime now = CDateTime::GetCurrentDateTime();
-      CDateTime m_gridStart = CPVRManager::GetEpg()->GetFirstEPGDate(bRadio);
-      CDateTime m_gridEnd = CPVRManager::GetEpg()->GetLastEPGDate(bRadio);
       m_parent->m_guideGrid = (CGUIEPGGridContainer*) m_parent->GetControl(CONTROL_LIST_TIMELINE);
       if (m_parent->m_guideGrid)
       {
-        m_parent->m_guideGrid->SetStartEnd(m_gridStart, m_gridEnd);
+        CDateTime gridStart = CDateTime::GetCurrentDateTime() - CDateTimeSpan(0, 0, g_advancedSettings.m_iEpgLingerTime, 0);
+        CDateTime firstDate = CPVRManager::GetEpg()->GetFirstEPGDate(bRadio);
+        CDateTime lastDate = CPVRManager::GetEpg()->GetLastEPGDate(bRadio);
+
+        m_parent->m_guideGrid->SetStartEnd(firstDate > gridStart ? firstDate : gridStart, lastDate);
         m_parent->m_viewControl.SetCurrentView(CONTROL_LIST_TIMELINE);
       }
 //      m_viewControl.SetSelectedItem(m_iSelected_GUIDE);
