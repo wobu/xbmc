@@ -36,26 +36,12 @@ CPVRChannelGroupInternal::CPVRChannelGroupInternal(bool bRadio) :
   m_iGroupId        = bRadio ? XBMC_INTERNAL_GROUP_RADIO : XBMC_INTERNAL_GROUP_TV;
   m_strGroupName    = g_localizeStrings.Get(bRadio ? 19216 : 19217);
   m_iSortOrder      = 0;
-  m_bLoaded         = false;
 }
 
 int CPVRChannelGroupInternal::Load()
 {
-  int iChannelCount = LoadFromDb();
-  CLog::Log(LOGDEBUG, "PVRChannelGroupInternal - %s - %d %s channels loaded from the database",
-        __FUNCTION__, iChannelCount, m_bRadio ? "radio" : "TV");
-
-  int iClientChannelCount = LoadFromClients();
-  if (iClientChannelCount > 0)
-  {
-    CLog::Log(LOGDEBUG, "PVRChannelGroupInternal - %s - %d %s channels added from clients",
-        __FUNCTION__, iClientChannelCount, m_bRadio ? "radio" : "TV");
-    iChannelCount += iClientChannelCount;
-  }
-
+  int iChannelCount = CPVRChannelGroup::Load();
   UpdateChannelPaths();
-
-  m_bLoaded = true;
 
   return iChannelCount;
 }
@@ -104,9 +90,9 @@ bool CPVRChannelGroupInternal::UpdateTimers(void)
   for (unsigned int ptr = 0; ptr < timers->size(); ptr++)
   {
     CPVRTimerInfoTag *timer = timers->at(ptr);
-    const CPVRChannel *tag = GetByClient(timer->Number(), timer->ClientID());
+    const CPVRChannel *tag = GetByClient(timer->m_iChannelNumber, timer->m_iClientID);
     if (tag)
-      timer->SetNumber(tag->ChannelNumber());
+      timer->m_iChannelNumber = tag->ChannelNumber();
   }
 
   return true;

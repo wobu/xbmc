@@ -407,7 +407,7 @@ void CPVRManager::UpdateRecordings(void)
 {
   CLog::Log(LOGDEBUG, "PVRManager - %s - updating recordings list", __FUNCTION__);
 
-  m_recordings->Update(true);
+  m_recordings->Update();
   UpdateRecordingsCache();
   UpdateWindow(PVR_WINDOW_RECORDINGS);
 
@@ -557,14 +557,14 @@ void CPVRManager::UpdateRecordingsCache(void)
     for (unsigned int iTimerPtr = 0; iTimerPtr < m_timers->size(); iTimerPtr++)
     {
       CPVRTimerInfoTag *timerTag = m_timers->at(iTimerPtr);
-      if (timerTag->Active())
+      if (timerTag->m_bIsActive)
       {
-        if (timerTag->Start() <= now && timerTag->Stop() > now)
+        if (timerTag->m_StartTime <= now && timerTag->m_StopTime > now)
         {
           m_NowRecording.push_back(timerTag);
           m_isRecording = true;
         }
-        if (!m_NextRecording || m_NextRecording->Start() > timerTag->Start())
+        if (!m_NextRecording || m_NextRecording->m_StartTime > timerTag->m_StartTime)
         {
           m_NextRecording = timerTag;
         }
@@ -598,7 +598,7 @@ const char *CPVRManager::CharInfoNowRecordingTitle(void)
   }
 
   return (m_NowRecording.size() >= m_recordingToggleCurrent + 1) ?
-    m_NowRecording[m_recordingToggleCurrent]->Title() :
+    m_NowRecording[m_recordingToggleCurrent]->m_strTitle :
     "";
 }
 
@@ -622,7 +622,7 @@ const char *CPVRManager::CharInfoNowRecordingDateTime(void)
   if (m_NowRecording.size() > 0)
   {
     CPVRTimerInfoTag *timerTag = m_NowRecording[m_recordingToggleCurrent];
-    strReturn = timerTag ? timerTag->Start().GetAsLocalizedDateTime(false, false) : "";
+    strReturn = timerTag ? timerTag->m_StartTime.GetAsLocalizedDateTime(false, false) : "";
   }
 
   return strReturn;
@@ -737,9 +737,9 @@ const char *CPVRManager::CharInfoNextTimer(void)
   if (next != NULL)
   {
     m_nextTimer.Format("%s %s %s %s", g_localizeStrings.Get(19106),
-        next->Start().GetAsLocalizedDate(true),
+        next->m_StartTime.GetAsLocalizedDate(true),
         g_localizeStrings.Get(19107),
-        next->Start().GetAsLocalizedTime("HH:mm", false));
+        next->m_StartTime.GetAsLocalizedTime("HH:mm", false));
     strReturn = m_nextTimer;
   }
 
@@ -845,9 +845,9 @@ const char* CPVRManager::TranslateCharInfo(DWORD dwInfo)
   if      (dwInfo == PVR_NOW_RECORDING_TITLE)     return CharInfoNowRecordingTitle();
   else if (dwInfo == PVR_NOW_RECORDING_CHANNEL)   return CharInfoNowRecordingChannel();
   else if (dwInfo == PVR_NOW_RECORDING_DATETIME)  return CharInfoNowRecordingDateTime();
-  else if (dwInfo == PVR_NEXT_RECORDING_TITLE)    return m_NextRecording ? m_NextRecording->Title() : "";
+  else if (dwInfo == PVR_NEXT_RECORDING_TITLE)    return m_NextRecording ? m_NextRecording->m_strTitle : "";
   else if (dwInfo == PVR_NEXT_RECORDING_CHANNEL)  return m_NextRecording ? m_NextRecording->ChannelName() : "";
-  else if (dwInfo == PVR_NEXT_RECORDING_DATETIME) return m_NextRecording ? m_NextRecording->Start().GetAsLocalizedDateTime(false, false) : "";
+  else if (dwInfo == PVR_NEXT_RECORDING_DATETIME) return m_NextRecording ? m_NextRecording->m_StartTime.GetAsLocalizedDateTime(false, false) : "";
   else if (dwInfo == PVR_BACKEND_NAME)            return m_backendName;
   else if (dwInfo == PVR_BACKEND_VERSION)         return m_backendVersion;
   else if (dwInfo == PVR_BACKEND_HOST)            return m_backendHost;
@@ -1088,7 +1088,7 @@ PVR_SERVERPROPS *CPVRManager::GetCurrentClientProperties(void)
   if (m_currentPlayingChannel)
     props = &m_clientsProps[m_currentPlayingChannel->GetPVRChannelInfoTag()->ClientID()];
   else if (m_currentPlayingRecording)
-    props = &m_clientsProps[m_currentPlayingRecording->GetPVRRecordingInfoTag()->ClientID()];
+    props = &m_clientsProps[m_currentPlayingRecording->GetPVRRecordingInfoTag()->m_clientID];
 
   return props;
 }
@@ -1100,7 +1100,7 @@ int CPVRManager::GetCurrentPlayingClientID(void)
   if (m_currentPlayingChannel)
     iReturn = m_currentPlayingChannel->GetPVRChannelInfoTag()->ClientID();
   else if (m_currentPlayingRecording)
-    iReturn = m_currentPlayingRecording->GetPVRRecordingInfoTag()->ClientID();
+    iReturn = m_currentPlayingRecording->GetPVRRecordingInfoTag()->m_clientID;
 
   return iReturn;
 }
@@ -1478,7 +1478,7 @@ bool CPVRManager::OpenLiveStream(const CPVRChannel* tag)
   return true;
 }
 
-bool CPVRManager::OpenRecordedStream(const CPVRRecordingInfoTag* tag)
+bool CPVRManager::OpenRecordedStream(const CPVRRecording* tag)
 {
   if (tag == NULL)
     return false;
@@ -1495,10 +1495,10 @@ bool CPVRManager::OpenRecordedStream(const CPVRRecordingInfoTag* tag)
   m_currentPlayingRecording = new CFileItem(*tag);
   m_currentPlayingChannel   = NULL;
   m_scanStart               = CTimeUtils::GetTimeMS();  /* Reset the stream scan timer */
-  m_playingClientName       = m_clients[tag->ClientID()]->GetBackendName() + ":" + m_clients[tag->ClientID()]->GetConnectionString();
+  m_playingClientName       = m_clients[tag->m_clientID]->GetBackendName() + ":" + m_clients[tag->m_clientID]->GetConnectionString();
 
   /* Open the recording stream on the Client */
-  return m_clients[tag->ClientID()]->OpenRecordedStream(*tag);
+  return m_clients[tag->m_clientID]->OpenRecordedStream(*tag);
 }
 
 CStdString CPVRManager::GetLiveStreamURL(const CPVRChannel *channel)
@@ -1559,9 +1559,9 @@ void CPVRManager::CloseStream()
   else if (m_currentPlayingRecording)
   {
     /* Close the Client connection */
-    if (m_currentPlayingRecording->GetPVRRecordingInfoTag()->ClientID() > 0 &&
-        m_clients[m_currentPlayingRecording->GetPVRRecordingInfoTag()->ClientID()])
-      m_clients[m_currentPlayingRecording->GetPVRRecordingInfoTag()->ClientID()]->CloseRecordedStream();
+    if (m_currentPlayingRecording->GetPVRRecordingInfoTag()->m_clientID > 0 &&
+        m_clients[m_currentPlayingRecording->GetPVRRecordingInfoTag()->m_clientID])
+      m_clients[m_currentPlayingRecording->GetPVRRecordingInfoTag()->m_clientID]->CloseRecordedStream();
     delete m_currentPlayingRecording;
     m_currentPlayingRecording = NULL;
   }
@@ -1590,7 +1590,7 @@ int CPVRManager::ReadStream(void* lpBuf, int64_t uiBufSize)
   if (m_currentPlayingChannel)
     bytesRead = m_clients[m_currentPlayingChannel->GetPVRChannelInfoTag()->ClientID()]->ReadLiveStream(lpBuf, uiBufSize);
   else if (m_currentPlayingRecording)
-    bytesRead = m_clients[m_currentPlayingRecording->GetPVRRecordingInfoTag()->ClientID()]->ReadRecordedStream(lpBuf, uiBufSize);
+    bytesRead = m_clients[m_currentPlayingRecording->GetPVRRecordingInfoTag()->m_clientID]->ReadRecordedStream(lpBuf, uiBufSize);
 
   return bytesRead;
 }
@@ -1636,7 +1636,7 @@ int64_t CPVRManager::LengthStream(void)
   if (m_currentPlayingChannel)
     streamLength = 0;
   else if (m_currentPlayingRecording)
-    streamLength = m_clients[m_currentPlayingRecording->GetPVRRecordingInfoTag()->ClientID()]->LengthRecordedStream();
+    streamLength = m_clients[m_currentPlayingRecording->GetPVRRecordingInfoTag()->m_clientID]->LengthRecordedStream();
 
   return streamLength;
 }
@@ -1650,7 +1650,7 @@ int64_t CPVRManager::SeekStream(int64_t iFilePosition, int iWhence/* = SEEK_SET*
   if (m_currentPlayingChannel)
     streamNewPos = 0;
   else if (m_currentPlayingRecording)
-    streamNewPos = m_clients[m_currentPlayingRecording->GetPVRRecordingInfoTag()->ClientID()]->SeekRecordedStream(iFilePosition, iWhence);
+    streamNewPos = m_clients[m_currentPlayingRecording->GetPVRRecordingInfoTag()->m_clientID]->SeekRecordedStream(iFilePosition, iWhence);
 
   return streamNewPos;
 }
@@ -1664,7 +1664,7 @@ int64_t CPVRManager::GetStreamPosition()
   if (m_currentPlayingChannel)
     streamPos = 0;
   else if (m_currentPlayingRecording)
-    streamPos = m_clients[m_currentPlayingRecording->GetPVRRecordingInfoTag()->ClientID()]->PositionRecordedStream();
+    streamPos = m_clients[m_currentPlayingRecording->GetPVRRecordingInfoTag()->m_clientID]->PositionRecordedStream();
 
   return streamPos;
 }
