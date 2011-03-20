@@ -35,7 +35,7 @@ CPVRTimerInfoTag::CPVRTimerInfoTag()
   m_strSummary         = "";
   m_bIsActive          = false;
   m_iChannelNumber     = -1;
-  m_iClientID          = CPVRManager::Get()->GetFirstClientID();
+  m_iClientID          = CPVRManager::Get()->GetClients()->GetFirstID();
   m_iClientIndex       = -1;
   m_iClientNumber      = -1;
   m_iClientChannelUid  = -1;
@@ -181,14 +181,16 @@ const CStdString &CPVRTimerInfoTag::GetStatus() const
 
 bool CPVRTimerInfoTag::AddToClient()
 {
-  FindEpgEvent();
+  UpdateEpgEvent();
 
   try
   {
-    CLIENTMAP *clients = CPVRManager::Get()->Clients();
+    CLIENTMAP clients;
+    if (!CPVRManager::Get()->GetClients()->Clients(&clients))
+      return false;
 
     /* and write it to the backend */
-    PVR_ERROR err = clients->find(m_iClientID)->second->AddTimer(*this);
+    PVR_ERROR err = clients.find(m_iClientID)->second->AddTimer(*this);
     if (err != PVR_ERROR_NO_ERROR)
       throw err;
 
@@ -208,15 +210,17 @@ bool CPVRTimerInfoTag::DeleteFromClient(bool force) const
 {
   try
   {
-    CLIENTMAP *clients = CPVRManager::Get()->Clients();
+    CLIENTMAP clients;
+    if (!CPVRManager::Get()->GetClients()->Clients(&clients))
+      return false;
 
     /* and write it to the backend */
-    PVR_ERROR err = clients->find(m_iClientID)->second->DeleteTimer(*this, force);
+    PVR_ERROR err = clients.find(m_iClientID)->second->DeleteTimer(*this, force);
 
     if (err == PVR_ERROR_RECORDING_RUNNING)
     {
       if (CGUIDialogYesNo::ShowAndGetInput(122,0,19122,0))
-        err = clients->find(m_iClientID)->second->DeleteTimer(*this, true);
+        err = clients.find(m_iClientID)->second->DeleteTimer(*this, true);
     }
 
     if (err != PVR_ERROR_NO_ERROR)
@@ -231,21 +235,24 @@ bool CPVRTimerInfoTag::DeleteFromClient(bool force) const
   return false;
 }
 
-bool CPVRTimerInfoTag::RenameOnClient(const CStdString &newname) const
+bool CPVRTimerInfoTag::RenameOnClient(const CStdString &newname)
 {
   try
   {
-    CLIENTMAP *clients = CPVRManager::Get()->Clients();
+    CLIENTMAP clients;
+    if (!CPVRManager::Get()->GetClients()->Clients(&clients))
+      return false;
 
     /* and write it to the backend */
-    PVR_ERROR err = clients->find(m_iClientID)->second->RenameTimer(*this, newname);
+    PVR_ERROR err = clients.find(m_iClientID)->second->RenameTimer(*this, newname);
 
     if (err == PVR_ERROR_NOT_IMPLEMENTED)
-      err = clients->find(m_iClientID)->second->UpdateTimer(*this);
+      err = clients.find(m_iClientID)->second->UpdateTimer(*this);
 
     if (err != PVR_ERROR_NO_ERROR)
       throw err;
 
+    m_strTitle = CStdString(newname);
     return true;
   }
   catch (PVR_ERROR err)
@@ -256,31 +263,71 @@ bool CPVRTimerInfoTag::RenameOnClient(const CStdString &newname) const
   return false;
 }
 
-void CPVRTimerInfoTag::FindEpgEvent(void)
+bool CPVRTimerInfoTag::UpdateEntry(const CPVRTimerInfoTag &tag)
 {
-  if (!m_EpgInfo)
+  if (m_EpgInfo)
   {
-    CPVREpg *epg = ((CPVRChannel *)CPVRManager::GetChannelGroups()->Get(m_bIsRadio)->GetGroupAll()->GetByChannelNumber(m_iChannelNumber))->GetEPG();
-
-    if (epg)
-    {
-      m_EpgInfo = (CPVREpgInfoTag *) epg->InfoTagBetween(m_StartTime, m_StopTime);
-      if (!m_EpgInfo)
-        m_EpgInfo = (CPVREpgInfoTag *) epg->InfoTagAround(m_StartTime);
-    }
+    m_EpgInfo->SetTimer(NULL);
+    m_EpgInfo = NULL;
   }
+
+  m_iClientID         = tag.m_iClientID;
+  m_iClientIndex      = tag.m_iClientIndex;
+  m_bIsActive         = tag.m_bIsActive;
+  m_strTitle          = tag.m_strTitle;
+  m_strDir            = tag.m_strDir;
+  m_iClientNumber     = tag.m_iClientNumber;
+  m_iClientChannelUid = tag.m_iClientChannelUid;
+  m_StartTime         = tag.m_StartTime;
+  m_StopTime          = tag.m_StopTime;
+  m_FirstDay          = tag.m_FirstDay;
+  m_iPriority         = tag.m_iPriority;
+  m_iLifetime         = tag.m_iLifetime;
+  m_bIsRecording      = tag.m_bIsRecording;
+  m_bIsRepeating      = tag.m_bIsRepeating;
+  m_iWeekdays         = tag.m_iWeekdays;
+  m_iChannelNumber    = tag.m_iChannelNumber;
+  m_bIsRadio          = tag.m_bIsRadio;
+
+  /* try to find an epg event */
+  UpdateEpgEvent();
+
+  return true;
+}
+
+void CPVRTimerInfoTag::UpdateEpgEvent(bool bClear /* = false */)
+{
+  /* try to get the channel */
+  CPVRChannel *channel = (CPVRChannel *) CPVRManager::GetChannelGroups()->GetByUniqueID(m_iClientChannelUid, m_iClientID);
+  if (!channel)
+    return;
+
+  /* try to get the EPG table */
+  CPVREpg *epg = channel->GetEPG();
+  if (!epg)
+    return;
+
+  /* try to set the timer on the epg tag that matches */
+  m_EpgInfo = (CPVREpgInfoTag *) epg->InfoTagBetween(m_StartTime, m_StopTime);
+  if (!m_EpgInfo)
+    m_EpgInfo = (CPVREpgInfoTag *) epg->InfoTagAround(m_StartTime);
+
+  if (m_EpgInfo)
+    m_EpgInfo->SetTimer(bClear ? NULL : this);
 }
 
 bool CPVRTimerInfoTag::UpdateOnClient()
 {
-  FindEpgEvent();
+  UpdateEpgEvent();
 
   try
   {
-    CLIENTMAP *clients = CPVRManager::Get()->Clients();
+    CLIENTMAP clients;
+    if (!CPVRManager::Get()->GetClients()->Clients(&clients))
+      return false;
 
     /* and write it to the backend */
-    PVR_ERROR err = clients->find(m_iClientID)->second->UpdateTimer(*this);
+    PVR_ERROR err = clients.find(m_iClientID)->second->UpdateTimer(*this);
     if (err != PVR_ERROR_NO_ERROR)
       throw err;
 
@@ -312,7 +359,7 @@ void CPVRTimerInfoTag::DisplayError(PVR_ERROR err) const
   return;
 }
 
-void CPVRTimerInfoTag::SetEpgInfoTag(const CPVREpgInfoTag *tag)
+void CPVRTimerInfoTag::SetEpgInfoTag(CPVREpgInfoTag *tag)
 {
   if (m_EpgInfo != tag)
   {

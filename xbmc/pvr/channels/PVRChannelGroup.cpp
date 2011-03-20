@@ -86,17 +86,16 @@ int CPVRChannelGroup::Load(void)
   CLog::Log(LOGDEBUG, "PVRChannelGroup - %s - %d channels loaded from the database for group '%s'",
         __FUNCTION__, iChannelCount, m_strGroupName.c_str());
 
-  int iClientChannelCount = LoadFromClients();
-  if (iClientChannelCount > 0)
+  Update();
+  if (size() - iChannelCount > 0)
   {
     CLog::Log(LOGDEBUG, "PVRChannelGroup - %s - %d channels added from clients to group '%s'",
-        __FUNCTION__, iClientChannelCount, m_strGroupName.c_str());
-    iChannelCount += iClientChannelCount;
+        __FUNCTION__, size() - iChannelCount, m_strGroupName.c_str());
   }
 
   m_bLoaded = true;
 
-  return iChannelCount;
+  return size();
 }
 
 void CPVRChannelGroup::Unload()
@@ -366,11 +365,6 @@ int CPVRChannelGroup::GetMembers(CFileItemList *results, bool bGroupMembers /* =
   return results->Size() - iOrigSize;
 }
 
-int CPVRChannelGroup::GetHiddenChannels(CFileItemList* results) const
-{
-  return GetMembers(results, false);
-}
-
 /********** private methods **********/
 
 int CPVRChannelGroup::LoadFromDb(bool bCompress /* = false */)
@@ -474,7 +468,7 @@ bool CPVRChannelGroup::AddToGroup(CPVRChannel *channel, int iChannelNumber /* = 
   if (!channel)
     return bReturn;
 
-  if (!IsGroupMember(channel))
+  if (!CPVRChannelGroup::IsGroupMember(channel))
   {
     if (iChannelNumber <= 0)
       iChannelNumber = size() + 1;

@@ -68,6 +68,7 @@ CPVRChannel::CPVRChannel(bool bRadio /* = false */)
   m_strIconPath             = "";
   m_strChannelName          = "";
   m_bIsVirtual              = false;
+  m_iLastWatched            = 0;
 
   m_EPG                     = NULL;
   m_bEPGEnabled             = true;
@@ -116,19 +117,13 @@ bool CPVRChannel::UpdateFromClient(const CPVRChannel &channel)
   bChanged = SetInputFormat(channel.InputFormat()) || bChanged;
   bChanged = SetStreamURL(channel.StreamURL()) || bChanged;
   bChanged = SetEncryptionSystem(channel.EncryptionSystem()) || bChanged;
-  bChanged = SetRecording(channel.IsRecording()) || bChanged;
-
   if (m_strChannelName.IsEmpty())
-  {
-    m_strChannelName = channel.ClientChannelName();
-    bChanged = true;
-  }
-
+    bChanged = SetChannelName(channel.ClientChannelName()) || bChanged;
   if (m_strIconPath.IsEmpty())
-  {
-    m_strIconPath = channel.IconPath();
-    bChanged = true;
-  }
+    bChanged = SetIconPath(channel.IconPath()) || bChanged;
+
+  /* don't set bChanged to true because this is not persisted */
+  SetRecording(channel.IsRecording());
 
   return bChanged;
 }
@@ -279,6 +274,26 @@ bool CPVRChannel::SetVirtual(bool bIsVirtual, bool bSaveInDb /* = false */)
   {
     /* update the virtual flag */
     m_bIsVirtual = bIsVirtual;
+    SetChanged();
+
+    /* persist the changes */
+    if (bSaveInDb)
+      Persist();
+
+    bReturn = true;
+  }
+
+  return bReturn;
+}
+
+bool CPVRChannel::SetLastWatched(time_t iLastWatched, bool bSaveInDb /* = false */)
+{
+  bool bReturn = false;
+
+  if (m_iLastWatched != iLastWatched)
+  {
+    /* update last watched  */
+    m_iLastWatched = iLastWatched;
     SetChanged();
 
     /* persist the changes */
@@ -579,7 +594,7 @@ int CPVRChannel::GetEPG(CFileItemList *results)
   CPVREpg *epg = GetEPG();
   if (!epg)
   {
-    CLog::Log(LOGERROR, "PVR - %s - cannot get EPG for channel '%s'",
+    CLog::Log(LOGDEBUG, "PVR - %s - cannot get EPG for channel '%s'",
         __FUNCTION__, m_strChannelName.c_str());
     return -1;
   }

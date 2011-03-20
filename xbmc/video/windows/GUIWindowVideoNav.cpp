@@ -406,8 +406,21 @@ void CGUIWindowVideoNav::LoadVideoInfo(CFileItemList &items)
 {
   // TODO: this could possibly be threaded as per the music info loading,
   //       we could also cache the info
+  if (!items.GetContent().IsEmpty())
+    return; // don't load for listings that have content set
+
   CStdString content = m_database.GetContentForPath(items.m_strPath);
+  if (content.IsEmpty())
+  {
+    items.SetContent("files");
+    return;
+  }
   items.SetContent(content);
+
+  bool clean = (g_guiSettings.GetBool("myvideos.cleanstrings") &&
+                !items.IsVirtualDirectoryRoot() &&
+                m_stackingAvailable);
+
   if (!content.IsEmpty())
   {
     for (int i = 0; i < items.Size(); i++)
@@ -422,6 +435,11 @@ void CGUIWindowVideoNav::LoadVideoInfo(CFileItemList &items)
         pItem->m_strPath = item.m_strPath;
         pItem->m_bIsFolder = item.m_bIsFolder;
       }
+      else
+      {
+        if (clean)
+          pItem->CleanString();
+      }
     }
   }
   else
@@ -432,6 +450,8 @@ void CGUIWindowVideoNav::LoadVideoInfo(CFileItemList &items)
       int playCount = m_database.GetPlayCount(*pItem);
       if (playCount >= 0)
         pItem->SetOverlayImage(CGUIListItem::ICON_OVERLAY_UNWATCHED, playCount > 0);
+      if (clean)
+        pItem->CleanString();
     }
   }
 }
@@ -992,7 +1012,8 @@ void CGUIWindowVideoNav::GetContextButtons(int itemNumber, CContextButtons &butt
 
       if (!m_vecItems->IsVideoDb() && !m_vecItems->IsVirtualDirectoryRoot())
       { // non-video db items, file operations are allowed
-        if (!item->IsReadOnly())
+        if (g_guiSettings.GetBool("filelists.allowfiledeletion") &&
+            CUtil::SupportsFileOperations(item->m_strPath))
         {
           buttons.Add(CONTEXT_BUTTON_DELETE, 117);
           buttons.Add(CONTEXT_BUTTON_RENAME, 118);

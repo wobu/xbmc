@@ -67,6 +67,9 @@ void cHTSPData::Close()
 
 bool cHTSPData::CheckConnection()
 {
+  if (!m_session.IsConnected())
+    m_session.Connect(g_szHostname, g_iPortHTSP);
+
   return m_session.IsConnected();
 }
 
@@ -407,7 +410,7 @@ PVR_ERROR cHTSPData::DeleteTimer(const PVR_TIMERINFO &timerinfo, bool force)
 
 PVR_ERROR cHTSPData::AddTimer(const PVR_TIMERINFO &timerinfo)
 {
-  XBMC->Log(LOG_DEBUG, "%s - channelNumber=%d channelUid=%d title=%s", __FUNCTION__, timerinfo.channelUid, timerinfo.channelUid, timerinfo.title);
+  XBMC->Log(LOG_DEBUG, "%s - channelNumber=%d channelUid=%d title=%s epgid=%d", __FUNCTION__, timerinfo.channelUid, timerinfo.channelUid, timerinfo.title, timerinfo.epgid);
 
   htsmsg_t *msg = htsmsg_create_map();
   htsmsg_add_str(msg, "method", "addDvrEntry");

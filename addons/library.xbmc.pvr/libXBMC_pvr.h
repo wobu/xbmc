@@ -54,16 +54,16 @@
 #define DVD_TIME_BASE 1000000
 #define DVD_NOPTS_VALUE    (-1LL<<52) // should be possible to represent in both double and __int64
 
-class cHelper_libXBMC_pvr
+class CHelper_libXBMC_pvr
 {
 public:
-  cHelper_libXBMC_pvr()
+  CHelper_libXBMC_pvr()
   {
     m_libXBMC_pvr = NULL;
     m_Handle      = NULL;
   }
 
-  ~cHelper_libXBMC_pvr()
+  ~CHelper_libXBMC_pvr()
   {
     if (m_libXBMC_pvr)
     {
@@ -127,6 +127,10 @@ public:
       dlsym(m_libXBMC_pvr, "PVR_trigger_recording_update");
     if (TriggerRecordingUpdate == NULL) { fprintf(stderr, "Unable to assign function %s\n", dlerror()); return false; }
 
+    TriggerChannelUpdate  = (void (*)())
+      dlsym(m_libXBMC_pvr, "PVR_trigger_channel_update");
+    if (TriggerChannelUpdate == NULL) { fprintf(stderr, "Unable to assign function %s\n", dlerror()); return false; }
+
 #ifdef USE_DEMUX
     FreeDemuxPacket         = (void (*)(DemuxPacket* pPacket))
       dlsym(m_libXBMC_pvr, "PVR_free_demux_packet");
@@ -148,6 +152,7 @@ public:
   void (*Recording)(const char *Name, const char *FileName, bool On);
   void (*TriggerTimerUpdate)();
   void (*TriggerRecordingUpdate)();
+  void (*TriggerChannelUpdate)();
 #ifdef USE_DEMUX
   void (*FreeDemuxPacket)(DemuxPacket* pPacket);
   DemuxPacket* (*AllocateDemuxPacket)(int iDataSize);

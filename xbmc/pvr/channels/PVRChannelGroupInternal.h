@@ -24,12 +24,14 @@
 #include "PVRChannelGroup.h"
 
 class CPVRChannelGroups;
+class CPVRDatabase;
 
 /** XBMC's internal group, the group containing all channels */
 
 class CPVRChannelGroupInternal : public CPVRChannelGroup
 {
   friend class CPVRChannelGroups;
+  friend class CPVRDatabase;
 
 private:
   int  m_iHiddenChannels; /*!< the amount of hidden channels in this container */
@@ -43,10 +45,9 @@ private:
 
   /*!
    * @brief Load all channels from the clients.
-   * @param bAddToDb If true, add the channels to the database.
    * @return The amount of channels that were loaded.
    */
-  int LoadFromClients(bool bAddToDb = true);
+  int LoadFromClients(void);
 
   /*!
    * @brief Add client channels to this container.
@@ -105,13 +106,6 @@ public:
    */
   CPVRChannelGroupInternal(bool bRadio);
 
-  /*!
-   * @brief Show a hidden channel or hide a visible channel.
-   * @param channel The channel to change.
-   * @return True if the channel was changed, false otherwise.
-   */
-  bool RemoveFromGroup(CPVRChannel *channel);
-
   /**
    * @brief The amount of channels in this container.
    * @return The amount of channels in this container.
@@ -136,4 +130,15 @@ public:
    * @return True if the channel was updated and persisted.
    */
   bool UpdateChannel(const CPVRChannel &channel);
+
+  /*!
+   * @brief Add a channel to this internal group.
+   */
+  bool InsertInGroup(CPVRChannel *channel, int iChannelNumber = 0);
+
+  bool IsGroupMember(const CPVRChannel *channel) const;
+  bool AddToGroup(CPVRChannel *channel, int iChannelNumber = 0);
+  bool RemoveFromGroup(CPVRChannel *channel);
+  bool MoveChannel(unsigned int iOldChannelNumber, unsigned int iNewChannelNumber, bool bSaveInDb = true);
+  int GetMembers(CFileItemList *results, bool bGroupMembers = true) const;
 };

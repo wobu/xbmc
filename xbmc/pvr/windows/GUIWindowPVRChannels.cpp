@@ -71,7 +71,7 @@ void CGUIWindowPVRChannels::GetContextButtons(int itemNumber, CContextButtons &b
     if (m_bShowHiddenChannels || CPVRManager::GetChannelGroups()->GetGroupAll(false)->GetNumHiddenChannels() > 0)
       buttons.Add(CONTEXT_BUTTON_SHOW_HIDDEN, m_bShowHiddenChannels ? 19050 : 19051); /* show hidden/visible channels */
 
-    if (CPVRManager::Get()->HasMenuHooks(pItem->GetPVRChannelInfoTag()->ClientID()))
+    if (CPVRManager::Get()->GetClients()->HasMenuHooks(pItem->GetPVRChannelInfoTag()->ClientID()))
       buttons.Add(CONTEXT_BUTTON_MENU_HOOKS, 19195);                                  /* PVR client specific action */
   }
 }
@@ -269,7 +269,7 @@ bool CGUIWindowPVRChannels::OnContextButtonHide(CFileItem *item, CONTEXT_BUTTON 
     if (!pDialog->IsConfirmed())
       return bReturn;
 
-    ((CPVRChannelGroup *) CPVRManager::GetChannelGroups()->GetGroupAll(m_bRadio))->RemoveFromGroup(channel);
+    ((CPVRChannelGroup *) CPVRManager::Get()->GetPlayingGroup(m_bRadio))->RemoveFromGroup(channel);
     UpdateData();
 
     bReturn = true;
@@ -308,7 +308,7 @@ bool CGUIWindowPVRChannels::OnContextButtonMove(CFileItem *item, CONTEXT_BUTTON 
 
     if (newIndex != channel->ChannelNumber())
     {
-      ((CPVRChannelGroup *) CPVRManager::GetChannelGroups()->GetGroupAll(m_bRadio))->MoveChannel(channel->ChannelNumber(), newIndex);
+      ((CPVRChannelGroup *) CPVRManager::Get()->GetPlayingGroup())->MoveChannel(channel->ChannelNumber(), newIndex);
       UpdateData();
     }
 
